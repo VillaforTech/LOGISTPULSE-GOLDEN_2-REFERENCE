@@ -6,7 +6,12 @@ const exec=promisify(execFile),base=process.env.BASE_URL||'http://localhost:2808
 const env=Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(x=>x&&!x.startsWith('#')).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)]}));
 const out='artifacts/streaming';fs.mkdirSync(out,{recursive:true});
 const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
+result.testedSha=(await exec('git',['rev-parse','HEAD'])).stdout.trim();
+result.environment={platform:process.platform,arch:process.arch,node:process.version};
+result.startedAt=new Date().toISOString();
+try{result.environment.docker=JSON.parse((await exec('docker',['info','--format','{"cpus":{{.NCPU}},"memoryBytes":{{.MemTotal}}}'])).stdout)}catch{}
 const browser=await chromium.launch({headless:true});
+result.environment.browser=browser.version();
 const context=await browser.newContext({viewport:{width:1600,height:1100}}),page=await context.newPage();
 result.pageErrors=[];result.httpFailures=[];
 page.on('pageerror',e=>result.pageErrors.push(String(e)));
@@ -85,6 +90,7 @@ try{
    }catch(error){return {index,correlation,orderId:created?.orderId,rendered:false,error:String(error)}}
   },{correlation,fixture:result.fixtureRunId,index:i,known});
   result.samples.push(sample);save();
+  if(!sample.rendered)throw new Error(sample.error||'Expected render was lost');
   if(sample.orderId){
    await page.waitForFunction(async id=>{const r=await fetch('/api/fulfillment/orders/'+id);return r.ok&&(await r.json()).status==='READY'},sample.orderId,{timeout:20000,polling:200});
    known.push(await page.evaluate(async id=>(await fetch('/api/fulfillment/orders/'+id)).json(),sample.orderId));
@@ -131,6 +137,6 @@ try{
 finally{
  await context.setOffline(false).catch(()=>{});
  for(const service of stopped)await compose('start',service).catch(()=>{});
- result.observed=result.samples.filter(x=>x.rendered).length;result.lost=result.requested-result.observed;save();await browser.close();
+ result.completedAt=new Date().toISOString();result.observed=result.samples.filter(x=>x.rendered).length;result.lost=result.requested-result.observed;save();await browser.close();
  console.log(JSON.stringify({passed:result.passed,observed:result.observed,lost:result.lost,p50Ms:result.p50Ms,p95Ms:result.p95Ms,maxMs:result.maxMs,errors:result.errors}));
 }
