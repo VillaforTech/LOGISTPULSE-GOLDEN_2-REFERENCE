@@ -20,6 +20,15 @@ const stopped=new Set();
 async function compose(...args){await exec('bash',['scripts/compose.sh',...args],{timeout:90000,maxBuffer:1024*1024})}
 async function stop(service){stopped.add(service);await compose('stop',service)}
 async function start(service){await compose('start',service);stopped.delete(service)}
+async function waitReady(id,timeout=30000){
+ const deadline=Date.now()+timeout;
+ while(Date.now()<deadline){
+  const order=await page.evaluate(async id=>{const r=await fetch('/api/fulfillment/orders/'+id);if(!r.ok)throw Error(r.status);return r.json()},id);
+  if(order.status==='READY')return order;
+  await new Promise(resolve=>setTimeout(resolve,200));
+ }
+ throw new Error('Order did not become READY within bounded wait: '+id);
+}
 function save(){fs.writeFileSync(out+'/measurements.json',JSON.stringify(result,null,2))}
 page.on('websocket',ws=>{
  if(ws.url().includes('/api/live/ws')){
@@ -92,8 +101,7 @@ try{
   result.samples.push(sample);save();
   if(!sample.rendered)throw new Error(sample.error||'Expected render was lost');
   if(sample.orderId){
-   await page.waitForFunction(async id=>{const r=await fetch('/api/fulfillment/orders/'+id);return r.ok&&(await r.json()).status==='READY'},sample.orderId,{timeout:20000,polling:200});
-   known.push(await page.evaluate(async id=>(await fetch('/api/fulfillment/orders/'+id)).json(),sample.orderId));
+   known.push(await waitReady(sample.orderId));
   }
   if(i%10===0)console.log(`Coherent Grafana KPI renders measured: ${i+1}/100`);
  }
@@ -114,7 +122,7 @@ try{
  result.visualChecks.deadline.order=due;
  await page.screenshot({path:out+'/grafana-real-deadline.png',fullPage:true});
  await start('fulfillment-worker');
- await page.waitForFunction(async id=>(await(await fetch('/api/fulfillment/orders/'+id)).json()).status==='READY',due.orderId,{timeout:30000,polling:200});
+ await waitReady(due.orderId);
  // No page reload: a live client must first invalidate, then receive a newer coherent revision.
  async function invalidateAndRecover(name,disconnect,reconnect){
   const before=await page.evaluate(()=>window.readLogistCards());
