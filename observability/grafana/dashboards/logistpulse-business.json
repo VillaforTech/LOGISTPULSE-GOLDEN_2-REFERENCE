@@ -1,0 +1,434 @@
+{
+  "uid": "logistpulse-business",
+  "title": "LOGISTPULSE Business",
+  "schemaVersion": 41,
+  "version": 1,
+  "timezone": "browser",
+  "editable": false,
+  "refresh": "5s",
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "tags": [
+    "reference",
+    "business",
+    "Grafana Live"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "L-K1 \u00b7 Promesas incumplidas",
+      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana",
+            "uid": "grafana"
+          },
+          "queryType": "measurements",
+          "channel": "stream/logistpulse/business",
+          "filter": {
+            "fields": [
+              "lk1"
+            ]
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "DATOS NO CONFIABLES",
+                  "color": "gray",
+                  "index": 0
+                },
+                "-2": {
+                  "text": "SIN MUESTRA",
+                  "color": "gray",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1e-06
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "L-K2 \u00b7 Valor vencido (DEMO)",
+      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana",
+            "uid": "grafana"
+          },
+          "queryType": "measurements",
+          "channel": "stream/logistpulse/business",
+          "filter": {
+            "fields": [
+              "lk2"
+            ]
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 8,
+        "y": 3,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "DATOS NO CONFIABLES",
+                  "color": "gray",
+                  "index": 0
+                },
+                "-2": {
+                  "text": "SIN MUESTRA",
+                  "color": "gray",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1e-06
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "L-K3 \u00b7 Deuda (pedido\u00b7segundos)",
+      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana",
+            "uid": "grafana"
+          },
+          "queryType": "measurements",
+          "channel": "stream/logistpulse/business",
+          "filter": {
+            "fields": [
+              "lk3"
+            ]
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 3,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "DATOS NO CONFIABLES",
+                  "color": "gray",
+                  "index": 0
+                },
+                "-2": {
+                  "text": "SIN MUESTRA",
+                  "color": "gray",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1e-06
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Identidad y tiempo del snapshot \u00b7 Grafana Live",
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana",
+            "uid": "grafana"
+          },
+          "queryType": "measurements",
+          "channel": "stream/logistpulse/business",
+          "filter": {
+            "fields": [
+              "revision",
+              "correlation_id",
+              "aggregate_id",
+              "aggregate_version",
+              "computed_at",
+              "quality",
+              "quality_reason",
+              "sample"
+            ]
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "reduceFields"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Monitor independiente \u00b7 edad del c\u00e1lculo (s)",
+      "description": "M\u00e9trica operativa consultada cada 5 s. Si supera 3 s o no hay datos, los \u00faltimos valores Live NO confirman salud.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - logistpulse_analytics_snapshot_timestamp_seconds",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "SIN CONEXI\u00d3N",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Monitor independiente \u00b7 adapter Live conectado",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"grafana-live-adapter\"}",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SIN CONEXI\u00d3N",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "TRANSPORTE ACTIVO",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "noValue": "SIN CONEXI\u00d3N"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "text",
+      "title": "Contrato y validez",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Referencia acad\u00e9mica \u2014 unidades DEMO.** L-K1: cohorte `(ahora\u2212900s, ahora\u221215s]`. L-K2/L-K3: todo backlog vencido. El heartbeat Live actualiza los paneles; refresh 5s solo comprueba los monitores independientes. **Si estos fallan, descartar los \u00faltimos n\u00fameros Live.** La consola aplica tambi\u00e9n un watchdog local de 3s."
+      }
+    }
+  ]
+}
