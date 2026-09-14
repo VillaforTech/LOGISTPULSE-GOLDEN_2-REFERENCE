@@ -4,7 +4,10 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const exec=promisify(execFile),base=process.env.BASE_URL||'http://localhost:28080';
 const env=Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(x=>x&&!x.startsWith('#')).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)]}));
-const out='artifacts/streaming';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/streaming';
+// Preserve each previous run instead of mixing an old failure image into a new result.
+if(fs.existsSync(out+'/measurements.json'))fs.renameSync(out,out+'-previous-'+Date.now());
+fs.mkdirSync(out,{recursive:true});
 const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
 result.testedSha=(await exec('git',['rev-parse','HEAD'])).stdout.trim();
 result.environment={platform:process.platform,arch:process.arch,node:process.version};
@@ -36,7 +39,13 @@ function save(){fs.writeFileSync(out+'/measurements.json',JSON.stringify(result,
 page.on('websocket',ws=>{
  if(ws.url().includes('/api/live/ws')){
   result.transport.url=ws.url();
-  ws.on('framesent',e=>{const v=String(e.payload);if(v.includes('stream/logistpulse/business'))result.transport.channels.push(v)});
+  ws.on('framesent',e=>{
+   for(const line of String(e.payload).split('\n')){
+    try{const channel=JSON.parse(line).subscribe?.channel;
+     if(channel==='stream/logistpulse/business')result.transport.channels.push(channel);
+    }catch{}
+   }
+  });
   ws.on('framereceived',()=>result.transport.frames++);
  }
 });
@@ -53,11 +62,13 @@ await context.addInitScript(()=>{
  };
  window.matchLogist=(cards,orders,identity)=>{
   if(cards.length!==3||cards.some(x=>x.quality!=='FRESH'))return null;
+  if([...new Set(cards.map(x=>x.logistpulsePanel))].sort().join(',')!=='lk1,lk2,lk3')return null;
   const first=cards[0];
   if(!first.eventId||!Number.isInteger(Number(first.revision))||Number(first.revision)<1)return null;
   if(cards.some(x=>x.revision!==first.revision||x.eventId!==first.eventId||x.computedAt!==first.computedAt))return null;
   if(identity&&cards.some(x=>x.correlationId!==identity.correlation||x.aggregateId!==identity.orderId||Number(x.aggregateVersion)<identity.version))return null;
   const expected=window.expectedLogist(orders,first.computedAt);
+  if(cards.some(x=>!Number.isFinite(Number(x.value))||!Number.isFinite(expected[x.logistpulsePanel])))return null;
   if(cards.some(x=>Math.abs(Number(x.value)-expected[x.logistpulsePanel])>.01||Number(x.sample)!==expected.sample))return null;
   if(cards.some(x=>x.display!==(Number(x.value)===-2?'SIN MUESTRA':Number(x.value).toLocaleString('es-EC',{maximumFractionDigits:2}))))return null;
   return {cards,expected};
@@ -74,7 +85,7 @@ try{
   await page.waitForURL(url=>!url.pathname.endsWith('/login'),{timeout:20000});
  }
  await page.goto(base+'/grafana/d/logistpulse-business/logistpulse-business?kiosk');
- await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='FRESH'),{timeout:30000});
+ await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='FRESH'),null,{timeout:30000});
  let known=await page.evaluate(async()=>{const r=await fetch('/api/fulfillment/snapshot');if(!r.ok)throw Error(r.status);return(await r.json()).orders});
  result.baselineAggregateCount=known.length;
  for(let i=0;i<100;i++){
@@ -114,6 +125,7 @@ try{
  result.observed=values.length;result.lost=100-values.length;
  const percentile=p=>values.length?values[Math.ceil(p*values.length)-1]:null;
  result.p50Ms=percentile(.5);result.p95Ms=percentile(.95);result.maxMs=values.at(-1)??null;
+ await page.waitForFunction(orders=>window.matchLogist(window.readLogistCards(),orders),known,{timeout:10000});
  await page.screenshot({path:out+'/grafana-100-renders.png',fullPage:true});
  if(result.lost)throw new Error(`${result.lost}/100 expected renders lost; not excluded`);
  if(!result.transport.url||!result.transport.channels.length)throw new Error('No observed native Grafana Live channel subscription');
@@ -128,7 +140,7 @@ try{
   const end=performance.now()+25000;
   while(performance.now()<end){
    const match=window.matchLogist(window.readLogistCards(),source,identity);
-   if(match&&match.expected.lk2>=25.5&&match.expected.lk3>0){
+   if(match&&window.logistEpoch(match.cards[0].computedAt)*1000>=deadlineMs&&match.expected.lk2>=25.5&&match.expected.lk3>0){
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const again=window.matchLogist(window.readLogistCards(),source,identity);
     if(again&&again.cards[0].revision===match.cards[0].revision){
@@ -154,7 +166,7 @@ try{
  async function invalidateAndRecover(name,disconnect,reconnect){
   const before=await page.evaluate(()=>window.readLogistCards());
   await disconnect();
-  await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='STALE'),{timeout:12000});
+  await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='STALE'),null,{timeout:12000});
   const stale=await page.evaluate(()=>window.readLogistCards());
   await page.screenshot({path:out+`/grafana-${name}-stale.png`,fullPage:true});
   await reconnect();

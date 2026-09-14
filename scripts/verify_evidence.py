@@ -2,6 +2,7 @@
 """Success evidence is mandatory; diagnostic capture remains useful in a red run."""
 from pathlib import Path
 import json
+import math
 import xml.etree.ElementTree as ET
 
 root = Path("artifacts")
@@ -27,14 +28,23 @@ assert (
     and stream["transport"]["channels"]
 )
 assert len({s["correlation"] for s in stream["samples"]}) == 100
+latencies = sorted(float(s["latencyMs"]) for s in stream["samples"])
+assert all(math.isfinite(value) and value >= 0 for value in latencies)
+assert abs(latencies[94] - stream["p95Ms"]) < 0.001
 for sample in stream["samples"]:
     assert sample["rendered"] and len(sample["cards"]) == 3
+    assert {c["logistpulsePanel"] for c in sample["cards"]} == {"lk1", "lk2", "lk3"}
     assert len({c["revision"] for c in sample["cards"]}) == 1
     assert len({c["eventId"] for c in sample["cards"]}) == 1
     assert all(
         c["quality"] == "FRESH"
         and c["aggregateId"] == sample["orderId"]
         and c["correlationId"] == sample["correlation"]
+        and c["eventId"]
+        and int(c["revision"]) > 0
+        and math.isfinite(float(c["value"]))
+        and math.isfinite(float(sample["expected"][c["logistpulsePanel"]]))
+        and abs(float(c["value"]) - sample["expected"][c["logistpulsePanel"]]) <= 0.01
         for c in sample["cards"]
     )
 for key in ("deadline", "browser", "adapter", "grafana"):

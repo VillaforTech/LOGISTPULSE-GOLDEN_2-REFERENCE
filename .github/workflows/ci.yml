@@ -64,6 +64,11 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Domain, timing, coverage and transport contracts
         run: python -m pytest tests/unit -q --junitxml=artifacts/unit.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject adversarial browser KPI observations
+        run: node --test tests/browser/*.test.mjs > artifacts/browser-oracle.tap
       - uses: actions/upload-artifact@v4
         if: always()
         with:

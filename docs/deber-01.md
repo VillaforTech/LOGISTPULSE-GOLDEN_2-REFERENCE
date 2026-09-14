@@ -32,7 +32,7 @@ El laboratorio de negocio es independiente del resultado unitario; guarda eviden
 
 ## 5. PR sano
 
-La implementación vive en `codex/reference-implementation` de este gemelo. El enlace y el run confirmado se incorporan al índice de evidencia cuando existan. Un draft o una ejecución en curso no se describe como aprobada.
+La implementación vive en [PR #1](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/pull/1), rama `codex/reference-implementation` de este gemelo. El [run sano inicial 34886316963](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/34886316963) pasó todos los jobs y Release gate sobre d283f62. La [selección de evidencia local](evidence/README.md) conserva 100/100 renders, p95 619.1 ms, detección de vencimiento y recuperación sin reload. Un draft o una ejecución posterior en curso no se describe como aprobada.
 
 ## 6. PR técnicamente sano con negocio roto
 

@@ -2,6 +2,8 @@
 
 Gemelo académico de [LOGISTPULSE-GOLDEN_2](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2), creado desde `d35fded`. El original conserva el trabajo compartido del equipo. Esta referencia añade una solución verificable al contrato de fulfillment y a los tres KPIs de negocio; conserva los dominios y el smoke test técnico del laboratorio.
 
+Esta implementación de referencia es de Roberto Villafuerte, con asistencia de Codex. Se conserva el historial del repositorio original. Las asignaciones de sus issues indican responsabilidades planificadas; no acreditan por sí mismas aportes de los compañeros a esta referencia.
+
 ## Arranque aislado
 
 Requisitos: Docker con Compose v2, Python 3.12 y Node 22 para las pruebas de navegador. En Codespaces se prepara `.env` automáticamente. Las credenciales locales se generan sin publicarlas; se pueden consultar en ese archivo privado para entrar a Grafana.
@@ -42,6 +44,7 @@ curl -fsS http://localhost:28080/api/business/snapshot
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest tests/unit -q
+node --test tests/browser/*.test.mjs
 mkdir -p artifacts
 bash scripts/compose.sh run --rm --build database-tests
 .venv/bin/python scripts/business_test.py
@@ -62,6 +65,7 @@ Las pruebas PostgreSQL usan esquemas temporales `test_<uuid>` y eliminan únicam
 
 ## Decisiones y evidencia
 
+- [Resultados conservados: 100/100, p95 619.1 ms, vencimiento y recuperación](docs/evidence/README.md).
 - [Contrato de negocio, fórmula y bordes](docs/kpis-deber-01.md).
 - [Hechos, outbox, checkpoints y calidad](docs/events-deber-01.md).
 - [Entrega y recorrido rojo → verde](docs/deber-01.md).
