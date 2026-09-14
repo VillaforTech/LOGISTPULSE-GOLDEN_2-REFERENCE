@@ -93,8 +93,14 @@ def test_coverage_detects_a_whole_missing_aggregate():
     assert coverage_digest(left)!=coverage_digest([left[0],dict(left[1],version=2)])
 
 
-@pytest.mark.parametrize('raw',[b'not json',b'[]',b'null',b'\xff'])
+@pytest.mark.parametrize('raw',[None,b'not json',b'[]',b'null',b'\xff'])
 def test_malformed_messages_are_quarantinable(raw):
     value=decode_message(raw)
     assert value['_malformed']
     with pytest.raises(ValueError): validate_event(value)
+
+
+@pytest.mark.parametrize('position',['1',True,0,-1])
+def test_bad_source_position_is_rejected_before_offset_work(position):
+    event=event_for(order(),'ORDER_CREATED',1001);event['sourcePosition']=position
+    with pytest.raises(ValueError):validate_event(event)

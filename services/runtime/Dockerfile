@@ -12,6 +12,7 @@ COPY requirements-dev.txt /app/requirements-dev.txt
 COPY services/runtime/requirements.txt /app/services/runtime/requirements.txt
 RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY services/logist /app/logist
+COPY services/inventory-api/stock_risk.py /app/services/inventory-api/stock_risk.py
 COPY tests /app/tests
 ENV PYTHONPATH=/app
 CMD ["pytest", "tests/unit", "tests/database", "-q", "--junitxml=/artifacts/database-tests.xml"]

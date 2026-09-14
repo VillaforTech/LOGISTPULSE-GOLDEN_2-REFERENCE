@@ -25,6 +25,7 @@ try:
         if age>=19 and snap['quality']['status']=='FRESH' and snap['kpis']['L-K1']['sample']==1:break
         time.sleep(.2)
     evidence['final']=observed;evidence['snapshot']=snap
+    persisted=get('/api/business/snapshot');evidence['persistedTimerSnapshot']=persisted
     for service in tuple(evidence['technical']): evidence['technical'][service]=get('/health/'+service)
     # A real no-new-event deadline sample is saved even when a regression blocks READY.
     save()
@@ -35,6 +36,9 @@ try:
     assert snap['quality']['status']=='FRESH' and snap['coverage']['complete']
     from datetime import datetime
     assert time.time()-datetime.fromisoformat(snap['computedAt'].replace('Z','+00:00')).timestamp()<3
+    assert persisted['quality']['status']=='FRESH'
+    assert time.time()-datetime.fromisoformat(persisted['computedAt'].replace('Z','+00:00')).timestamp()<3
+    assert datetime.fromisoformat(persisted['computedAt'].replace('Z','+00:00')).timestamp()>=order['createdAt']+15, 'Persisted timer never crossed the deadline'
     assert snap['kpis']['L-K1']['sample']==1 and snap['kpis']['L-K1']['value']==0
     assert snap['kpis']['L-K2']['value']=='0.00' and snap['kpis']['L-K3']['value']==0
     evidence.update(passed=True,completedAt=time.time());save();print('Business contract PASS: exact order READY on time; full independent projection agrees.')

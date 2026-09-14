@@ -123,6 +123,8 @@ def coverage_digest(orders):
 
 
 def decode_message(raw):
+    if raw is None:
+        return {'_malformed':True,'reason':'Kafka tombstone is not a domain fact'}
     try:
         value = json.loads(raw.decode('utf-8'))
         if not isinstance(value, dict):

@@ -33,9 +33,25 @@ try:
     result['adapterDuringAnalyticsOutage']=get('/health/live')
     assert result['adapterDuringAnalyticsOutage']['ready'] is False
     compose('start','business-analytics');new=wait(fresh,60)
-    assert new['revision']>old['revision'] and new['coverage']['aggregateCount']>=old['coverage']['aggregateCount']
+    assert new['revision']>old['revision']
+    assert new['coverage']['aggregateCount']==old['coverage']['aggregateCount']
+    assert new['watermark']['versionDigest']==old['watermark']['versionDigest']
+    assert new['watermark']['sourcePosition']==old['watermark']['sourcePosition']
+    assert new['coverage']['eventCount']==old['coverage']['eventCount']
     assert get('/api/fulfillment/orders/'+created['orderId'])['readyAt']==restored['readyAt']
     result['afterAnalyticsRestart']=new
+    source=get('/api/fulfillment/snapshot')['orders']
+    from datetime import datetime
+    from decimal import Decimal
+    def epoch(value):return datetime.fromisoformat(value.replace('Z','+00:00')).timestamp()
+    now=epoch(new['computedAt']);cohort=[o for o in source if now-900<epoch(o['createdAt'])<=now-15]
+    breached=[o for o in cohort if o['readyAt'] is None or epoch(o['readyAt'])>epoch(o['createdAt'])+15]
+    open_due=[o for o in source if o['status']!='READY' and epoch(o['createdAt'])+15<=now]
+    assert new['kpis']['L-K1']['sample']==len(cohort)
+    assert new['kpis']['L-K1']['value']==(100*len(breached)/len(cohort) if cohort else None)
+    assert Decimal(new['kpis']['L-K2']['value'])==sum((Decimal(o['total']) for o in open_due),Decimal(0))
+    assert abs(new['kpis']['L-K3']['value']-sum(max(0,now-epoch(o['createdAt'])-15) for o in open_due))<.001
+    result['independentOracle']={'cohort':len(cohort),'breached':len(breached),'openOverdue':len(open_due)}
     compose('restart','grafana-live-adapter');wait(lambda:get('/health/live')['ready'],40)
     compose('restart','grafana');wait(lambda:get('/health/live')['ready'],60)
     result['afterGrafanaRestart']=get('/health/live');result['passed']=True

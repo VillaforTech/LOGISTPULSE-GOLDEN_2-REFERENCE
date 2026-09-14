@@ -114,6 +114,9 @@ jobs:
       - name: Broker, analytics and Grafana recovery
         if: ${{ !cancelled() && steps.business.outcome == 'success' }}
         run: python scripts/resilience_test.py
+      - name: Verify success evidence is complete
+        if: ${{ !cancelled() && steps.business.outcome == 'success' }}
+        run: python scripts/verify_evidence.py
       - name: Preserve all evidence before teardown
         if: always()
         run: bash scripts/capture.sh

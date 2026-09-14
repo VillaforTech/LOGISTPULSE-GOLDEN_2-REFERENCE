@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from stock_risk import stock_risk
 import os, psycopg, time
 
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -55,7 +56,7 @@ def health():
 def inventory(store_id:str):
     with conn() as c:
         rows=c.execute("SELECT sku,item_name,unit,stock,forecast_4h FROM inventory WHERE store_id=%s ORDER BY item_name",(store_id,)).fetchall()
-    return [{'sku':r[0],'item':r[1],'unit':r[2],'stock':float(r[3]),'forecast4h':float(r[4]),'risk':'HIGH' if r[3]<r[4]*.75 else ('MEDIUM' if r[3]<r[4] else 'LOW')} for r in rows]
+    return [{'sku':r[0],'item':r[1],'unit':r[2],'stock':float(r[3]),'forecast4h':float(r[4]),'risk':stock_risk(r[3],r[4])} for r in rows]
 @app.post('/api/inventory/{store_id}/{sku}/adjust')
 def adjust(store_id:str,sku:str,a:Adjustment):
     with conn() as c:

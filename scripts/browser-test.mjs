@@ -1,17 +1,46 @@
 import {chromium} from 'playwright';
 import fs from 'node:fs';
-const base=process.env.BASE_URL||'http://localhost:28080';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const exec=promisify(execFile),base=process.env.BASE_URL||'http://localhost:28080';
 const env=Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(x=>x&&!x.startsWith('#')).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)]}));
 const out='artifacts/streaming';fs.mkdirSync(out,{recursive:true});
-const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},measurement:'browser performance.now API invocation -> matching aggregate/correlation rendered in native Grafana table + two animation frames',thresholdP95Ms:1000};
+const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
 const browser=await chromium.launch({headless:true});
-const page=await browser.newPage({viewport:{width:1600,height:1100}});
+const context=await browser.newContext({viewport:{width:1600,height:1100}}),page=await context.newPage();
+const stopped=new Set();
+async function compose(...args){await exec('bash',['scripts/compose.sh',...args],{timeout:90000,maxBuffer:1024*1024})}
+async function stop(service){stopped.add(service);await compose('stop',service)}
+async function start(service){await compose('start',service);stopped.delete(service)}
+function save(){fs.writeFileSync(out+'/measurements.json',JSON.stringify(result,null,2))}
 page.on('websocket',ws=>{
  if(ws.url().includes('/api/live/ws')){
   result.transport.url=ws.url();
   ws.on('framesent',e=>{const v=String(e.payload);if(v.includes('stream/logistpulse/business'))result.transport.channels.push(v)});
   ws.on('framereceived',()=>result.transport.frames++);
  }
+});
+// Instrumentation reads actual DOM and computes a separate business oracle; it does not write panel values.
+await context.addInitScript(()=>{
+ window.readLogistCards=()=>[...document.querySelectorAll('[data-logistpulse-panel]')].map(x=>({...x.dataset,text:x.innerText,display:x.querySelector('[data-logistpulse-value]')?.innerText}));
+ window.logistEpoch=value=>typeof value==='number'?value:Date.parse(value)/1000+(Number(value.match(/\.(\d{6})Z$/)?.[1]||0)%1000)/1000000;
+ window.expectedLogist=(orders,computedAt)=>{
+  const now=window.logistEpoch(computedAt);
+  const due=orders.filter(o=>window.logistEpoch(o.createdAt)>now-900&&window.logistEpoch(o.createdAt)<=now-15);
+  const breached=due.filter(o=>o.readyAt==null||window.logistEpoch(o.readyAt)>window.logistEpoch(o.createdAt)+15);
+  const overdue=orders.filter(o=>o.status!=='READY'&&window.logistEpoch(o.createdAt)+15<=now);
+  return {lk1:due.length?100*breached.length/due.length:-2,lk2:overdue.reduce((v,o)=>v+Math.round(Number(o.totalExact??o.total)*100),0)/100,lk3:overdue.reduce((v,o)=>v+Math.max(0,now-window.logistEpoch(o.createdAt)-15),0),sample:due.length};
+ };
+ window.matchLogist=(cards,orders,identity)=>{
+  if(cards.length!==3||cards.some(x=>x.quality!=='FRESH'))return null;
+  const first=cards[0];
+  if(cards.some(x=>x.revision!==first.revision||x.eventId!==first.eventId||x.computedAt!==first.computedAt))return null;
+  if(identity&&cards.some(x=>x.correlationId!==identity.correlation||x.aggregateId!==identity.orderId||Number(x.aggregateVersion)<identity.version))return null;
+  const expected=window.expectedLogist(orders,first.computedAt);
+  if(cards.some(x=>Math.abs(Number(x.value)-expected[x.logistpulsePanel])>.01||Number(x.sample)!==expected.sample))return null;
+  if(cards.some(x=>x.display!==(Number(x.value)===-2?'SIN MUESTRA':Number(x.value).toLocaleString('es-EC',{maximumFractionDigits:2}))))return null;
+  return {cards,expected};
+ };
 });
 try{
  await page.goto(base+'/grafana/login');
@@ -22,52 +51,82 @@ try{
   await page.waitForURL(url=>!url.pathname.endsWith('/login'),{timeout:20000});
  }
  await page.goto(base+'/grafana/d/logistpulse-business/logistpulse-business?kiosk');
- await page.getByText('Identidad y tiempo del snapshot · Grafana Live',{exact:true}).waitFor();
- await page.waitForFunction(()=>document.body.innerText.includes('computed_at'),{timeout:30000});
- // A smoke order before measurement avoids timing subscription establishment as render latency.
+ await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='FRESH'),{timeout:30000});
+ let known=await page.evaluate(async()=>{const r=await fetch('/api/fulfillment/snapshot');if(!r.ok)throw Error(r.status);return(await r.json()).orders});
+ result.baselineAggregateCount=known.length;
  for(let i=0;i<100;i++){
   const correlation=`${result.fixtureRunId}-${i}`;
-  const sample=await page.evaluate(async({correlation,fixture,index})=>{
-   const start=performance.now();
-   let created;
+  const sample=await page.evaluate(async({correlation,fixture,index,known})=>{
+   const start=performance.now();let created;
    try{
     const response=await fetch('/api/fulfillment/orders',{method:'POST',headers:{'Content-Type':'application/json','X-Correlation-ID':correlation},body:JSON.stringify({total:'25.50',channel:'LIVE-BENCHMARK',fixtureRunId:fixture})});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
-    created=await response.json();
-    const received=performance.now();
+    created=await response.json();const received=performance.now();
+    const orders=[...known,created],identity={correlation,orderId:created.orderId,version:created.aggregateVersion};
     const rendered=await new Promise((resolve,reject)=>{
      const expiry=performance.now()+5000;
      function inspect(){
-      const tables=[...document.querySelectorAll('[role="table"],table')];
-      const text=tables.map(t=>t.innerText).join('\n');
-      if(text.includes(correlation)&&text.includes(created.orderId)){
-       requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(performance.now())));return;
+      const match=window.matchLogist(window.readLogistCards(),orders,identity);
+      if(match){
+       requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const again=window.matchLogist(window.readLogistCards(),orders,identity);
+        if(again&&again.cards[0].revision===match.cards[0].revision)resolve({at:performance.now(),...again});else inspect();
+       }));return;
       }
-      if(performance.now()>expiry){reject(new Error('No matching native Grafana table render within 5s'));return;}
+      if(performance.now()>expiry){reject(new Error('No coherent FRESH KPI render with expected values within 5s'));return;}
       requestAnimationFrame(inspect);
      }inspect();
     });
-    return {index,correlation,orderId:created.orderId,eventId:created.eventId,aggregateVersion:created.aggregateVersion,apiMs:received-start,latencyMs:rendered-start,rendered:true};
+    return {index,correlation,orderId:created.orderId,eventId:created.eventId,aggregateVersion:created.aggregateVersion,apiMs:received-start,latencyMs:rendered.at-start,rendered:true,cards:rendered.cards,expected:rendered.expected};
    }catch(error){return {index,correlation,orderId:created?.orderId,rendered:false,error:String(error)}}
-  },{correlation,fixture:result.fixtureRunId,index:i});
-  result.samples.push(sample);
-  // Keep serial kitchen workload within the unchanged four-second preparation model.
+  },{correlation,fixture:result.fixtureRunId,index:i,known});
+  result.samples.push(sample);save();
   if(sample.orderId){
    await page.waitForFunction(async id=>{const r=await fetch('/api/fulfillment/orders/'+id);return r.ok&&(await r.json()).status==='READY'},sample.orderId,{timeout:20000,polling:200});
+   known.push(await page.evaluate(async id=>(await fetch('/api/fulfillment/orders/'+id)).json(),sample.orderId));
   }
-  if(i%10===0)console.log(`Native Grafana renders measured: ${i+1}/100`);
-  fs.writeFileSync(out+'/measurements.json',JSON.stringify(result,null,2));
+  if(i%10===0)console.log(`Coherent Grafana KPI renders measured: ${i+1}/100`);
  }
- await page.screenshot({path:out+'/native-grafana.png',fullPage:true});
- const sorted=result.samples.filter(x=>x.rendered).map(x=>x.latencyMs).sort((a,b)=>a-b);
- result.observed=sorted.length;result.lost=100-sorted.length;
- const percentile=p=>sorted.length?sorted[Math.ceil(p*sorted.length)-1]:null;
- result.p50Ms=percentile(.5);result.p95Ms=percentile(.95);result.maxMs=sorted.at(-1)??null;
- if(result.lost)throw new Error(`${result.lost}/100 expected renders lost; not excluded from the result`);
+ const values=result.samples.filter(x=>x.rendered).map(x=>x.latencyMs).sort((a,b)=>a-b);
+ result.observed=values.length;result.lost=100-values.length;
+ const percentile=p=>values.length?values[Math.ceil(p*values.length)-1]:null;
+ result.p50Ms=percentile(.5);result.p95Ms=percentile(.95);result.maxMs=values.at(-1)??null;
+ await page.screenshot({path:out+'/grafana-100-renders.png',fullPage:true});
+ if(result.lost)throw new Error(`${result.lost}/100 expected renders lost; not excluded`);
  if(!result.transport.url||!result.transport.channels.length)throw new Error('No observed native Grafana Live channel subscription');
  if(result.p95Ms>=1000)throw new Error(`p95 ${result.p95Ms.toFixed(1)}ms fails <1000ms`);
- // Reconnection must deliver a new revision into a freshly loaded native subscriber.
- await page.reload();await page.waitForFunction(()=>document.body.innerText.includes('computed_at'),{timeout:30000});
- result.reconnectObserved=true;result.passed=true;
+ // Separate causal check: a new order crosses its real 15-second deadline with no further facts.
+ await stop('fulfillment-worker');
+ const due=await page.evaluate(async fixture=>{const r=await fetch('/api/fulfillment/orders',{method:'POST',headers:{'Content-Type':'application/json','X-Correlation-ID':fixture},body:JSON.stringify({total:'25.50',fixtureRunId:fixture,channel:'TIMER-VISUAL'})});if(!r.ok)throw Error(r.status);return r.json()},result.fixtureRunId+'-deadline');
+ const source=await page.evaluate(async()=>(await(await fetch('/api/fulfillment/snapshot')).json()).orders);
+ await page.waitForFunction(({source,due})=>{const m=window.matchLogist(window.readLogistCards(),source,{correlation:due.correlationId,orderId:due.orderId,version:due.version});return m&&m.expected.lk2>=25.5&&m.expected.lk3>0},{source,due},{timeout:25000,polling:100});
+ result.visualChecks.deadline=await page.evaluate(source=>({passed:true,...window.matchLogist(window.readLogistCards(),source)}),source);
+ result.visualChecks.deadline.order=due;
+ await page.screenshot({path:out+'/grafana-real-deadline.png',fullPage:true});
+ await start('fulfillment-worker');
+ await page.waitForFunction(async id=>(await(await fetch('/api/fulfillment/orders/'+id)).json()).status==='READY',due.orderId,{timeout:30000,polling:200});
+ // No page reload: a live client must first invalidate, then receive a newer coherent revision.
+ async function invalidateAndRecover(name,disconnect,reconnect){
+  const before=await page.evaluate(()=>window.readLogistCards());
+  await disconnect();
+  await page.waitForFunction(()=>window.readLogistCards().length===3&&window.readLogistCards().every(c=>c.quality==='STALE'),{timeout:12000});
+  const stale=await page.evaluate(()=>window.readLogistCards());
+  await page.screenshot({path:out+`/grafana-${name}-stale.png`,fullPage:true});
+  await reconnect();
+  const full=await page.evaluate(async()=>(await(await fetch('/api/fulfillment/snapshot')).json()).orders);
+  await page.waitForFunction(({full,revision})=>{const m=window.matchLogist(window.readLogistCards(),full);return m&&Number(m.cards[0].revision)>revision},{full,revision:Number(before[0].revision)},{timeout:60000,polling:100});
+  const recovered=await page.evaluate(()=>window.readLogistCards());
+  result.visualChecks[name]={passed:true,before,stale,recovered,reload:false};save();
+ }
+ await invalidateAndRecover('browser',()=>context.setOffline(true),()=>context.setOffline(false));
+ await invalidateAndRecover('adapter',()=>stop('grafana-live-adapter'),()=>start('grafana-live-adapter'));
+ await invalidateAndRecover('grafana',()=>stop('grafana'),()=>start('grafana'));
+ await page.screenshot({path:out+'/grafana-reconnected.png',fullPage:true});
+ result.passed=true;
 }catch(error){result.passed=false;result.errors.push(String(error));await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});process.exitCode=1}
-finally{fs.writeFileSync(out+'/measurements.json',JSON.stringify(result,null,2));await browser.close();console.log(JSON.stringify({passed:result.passed,observed:result.observed,lost:result.lost,p50Ms:result.p50Ms,p95Ms:result.p95Ms,maxMs:result.maxMs,errors:result.errors}));}
+finally{
+ await context.setOffline(false).catch(()=>{});
+ for(const service of stopped)await compose('start',service).catch(()=>{});
+ result.observed=result.samples.filter(x=>x.rendered).length;result.lost=result.requested-result.observed;save();await browser.close();
+ console.log(JSON.stringify({passed:result.passed,observed:result.observed,lost:result.lost,p50Ms:result.p50Ms,p95Ms:result.p95Ms,maxMs:result.maxMs,errors:result.errors}));
+}

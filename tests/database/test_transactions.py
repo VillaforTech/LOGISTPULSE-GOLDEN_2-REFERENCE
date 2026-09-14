@@ -49,7 +49,7 @@ def create():
 
 
 def query(factory,query,args=()):
-    with factory() as db:return db.execute(query,args).fetchall()
+    with factory() as db:return db.execute(query,args or None).fetchall()
 
 
 def test_api_and_two_outbox_records_commit_together(domain_db):
@@ -178,3 +178,29 @@ def test_timer_persists_activation_and_late_resolution(analytics_db,monkeypatch)
     analytics.commit_snapshot()
     assert query(analytics_db,'SELECT * FROM alerts WHERE active')==[]
     assert len(query(analytics_db,'SELECT * FROM alert_history'))==6
+
+
+def test_analytics_role_cannot_connect_to_fulfillment():
+    with pytest.raises(psycopg.OperationalError):
+        psycopg.connect(os.environ['ANALYTICS_DB_URL'],dbname='fulfillment_db',connect_timeout=3)
+
+
+def test_projection_keeps_more_than_twenty_orders(analytics_db,monkeypatch):
+    facts=[]
+    for i in range(30):
+        fact=events()[0];fact['aggregateId']=fact['data']['orderId']=f'ORD-{i}'
+        facts.append(fact);ingest(fact,i)
+    now=time.time()
+    with analytics_db() as db:analytics.set_meta(db,'coverage',{'complete':True})
+    monkeypatch.setattr(analytics,'state',dict(ready=True,lastPoll=now,sourceCheckedAt=now,sourcePosition=1,lag=0,sourcePending=0,aggregateCount=30,versionDigest=coverage_digest([e['data'] for e in facts])))
+    with analytics_db() as db:value=analytics.snapshot_data(db,now)
+    assert value['quality']['status']=='FRESH' and value['coverage']['aggregateCount']==30
+    assert value['kpis']['L-K1']['sample']==30 and value['kpis']['L-K2']['value']=='765.00'
+
+
+def test_microsecond_creation_survives_postgres_numeric_adapter(domain_db,monkeypatch):
+    monkeypatch.setattr(fulfillment.time,'time',lambda:1789400000.123456)
+    created=create()
+    assert created['createdAtUtc']=='2026-09-14T15:33:20.123456Z'
+    fact=query(domain_db,"SELECT envelope FROM outbox WHERE topic LIKE '%events%'")[0]['envelope']
+    assert fact['data']['createdAt']==fact['occurredAt']==created['createdAtUtc']

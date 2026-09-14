@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+from decimal import Decimal
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -72,7 +73,7 @@ def enqueue(db, envelope, topic, now):
     event_id = envelope.get('eventId') or envelope['commandId']
     row = db.execute('''INSERT INTO outbox(event_id,topic,aggregate_id,envelope,created_at)
         VALUES (%s,%s,%s,%s,%s) RETURNING sequence''',
-        (event_id, topic, envelope.get('aggregateId') or envelope['orderId'], Jsonb(envelope), now)).fetchone()
+        (event_id, topic, envelope.get('aggregateId') or envelope['orderId'], Jsonb(envelope), Decimal(str(now)))).fetchone()
     envelope = dict(envelope, sourcePosition=row['sequence'])
     db.execute('UPDATE outbox SET envelope=%s WHERE sequence=%s', (Jsonb(envelope), row['sequence']))
     return envelope
@@ -85,6 +86,6 @@ def record_transition(db, order, event_type, now):
 def update_order(db, order):
     db.execute('''UPDATE orders SET status=%s,updated_at=%s,ready_at=%s,version=%s,
         preparing_at=CASE WHEN %s='PREPARING' THEN COALESCE(preparing_at,%s) ELSE preparing_at END
-        WHERE order_id=%s''', (order['status'], epoch(order['updatedAt']),
-        epoch(order['readyAt']) if order.get('readyAt') else None, order['version'],
-        order['status'], epoch(order['updatedAt']), order['orderId']))
+        WHERE order_id=%s''', (order['status'], Decimal(str(epoch(order['updatedAt']))),
+        Decimal(str(epoch(order['readyAt']))) if order.get('readyAt') else None, order['version'],
+        order['status'], Decimal(str(epoch(order['updatedAt']))), order['orderId']))

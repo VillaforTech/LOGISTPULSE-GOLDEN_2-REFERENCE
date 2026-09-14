@@ -8,6 +8,7 @@ import time
 import httpx
 import websocket
 from fastapi import FastAPI, HTTPException
+from prometheus_client import Gauge
 from .domain import epoch
 from .metrics import instrument
 
@@ -18,6 +19,7 @@ STREAM = 'logistpulse'
 MEASUREMENT = 'business'
 state = {'ready':False,'lastPush':0.,'lastSnapshot':0.,'revision':-1,'errors':0}
 stop = threading.Event()
+LAST_PUSH=Gauge('logistpulse_live_last_success_timestamp_seconds','Last successful Grafana Live push timestamp')
 
 
 def line_protocol(snapshot):
@@ -45,6 +47,7 @@ def publish(client,snapshot):
     response = client.post(GRAFANA+'/api/live/push/'+STREAM,content=line_protocol(snapshot),headers={'Content-Type':'text/plain'})
     response.raise_for_status()
     state.update(lastPush=time.time(),ready=snapshot['quality']['status']=='FRESH')
+    LAST_PUSH.set(state['lastPush'])
 
 
 def run():

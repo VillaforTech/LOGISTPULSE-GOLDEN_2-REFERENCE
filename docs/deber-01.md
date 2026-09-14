@@ -44,7 +44,7 @@ CI sube `unit-evidence`, `technical-evidence` y `business-and-streaming-evidence
 
 ## 8. Diagnóstico y corrección
 
-Baseline `d35fded`: el run 34871225487 falló con 502 de inventario y conexión rechazada. Eso evidencia una dependencia no disponible al consultar; no demuestra por sí solo que `executemany` causó el 502. Por inspección había además un `Connection.executemany` incorrecto en dos bootstraps. La referencia usa cursores, propaga errores de programación, consulta tablas en health y espera readiness antes del proxy.
+Baseline `d35fded`: el run 34871225487 falló con 502 de inventario y conexión rechazada. Eso evidencia una dependencia no disponible al consultar; no demuestra por sí solo que `executemany` causó el 502. Por inspección había además un `Connection.executemany` incorrecto en dos bootstraps. La referencia usa cursores, propaga errores de programación, consulta tablas en health y espera readiness antes del proxy. El primer run de esta implementación también reveló Decimal×float en el cálculo de inventario y pérdida de precisión en timestamps float→numeric. Se corrigieron con aritmética Decimal y timestamps canónicos de microsegundos; se conservaron el smoke y las validaciones temporales.
 
 Para el fallo de negocio, la corrección conserva READY y readyAt en la transacción del worker junto con el hecho de outbox. Repetir un comando no reabre ni retima un pedido ya terminado. Las pruebas comprueban estado y tiempo, separadas de la salud técnica.
 

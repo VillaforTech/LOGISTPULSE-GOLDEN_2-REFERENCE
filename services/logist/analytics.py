@@ -137,6 +137,7 @@ def persist_event(event, topic, partition, offset):
 
 
 def snapshot_data(db, now, fixture=None):
+    checkpoint=dict(state)
     rows = db.execute('SELECT data FROM projection').fetchall()
     all_orders = [row['data'] for row in rows]
     orders = [o for o in all_orders if fixture is None or o.get('fixtureRunId') == fixture]
@@ -149,10 +150,10 @@ def snapshot_data(db, now, fixture=None):
     quality, reason = 'FRESH', ''
     if not coverage['complete'] or gaps or errors:
         quality, reason = 'INCOMPLETE', coverage.get('reason') or f'{gaps} revision gaps; {errors} quarantined records'
-    elif not state['ready'] or now-state['lastPoll'] > 3 or now-state['sourceCheckedAt'] > 3:
+    elif not checkpoint['ready'] or now-checkpoint['lastPoll'] > 3 or now-checkpoint['sourceCheckedAt'] > 3:
         quality, reason = 'STALE', 'Consumer or source watermark heartbeat unavailable'
-    elif (state['lag'] > 0 or state['sourcePosition'] > position or state['sourcePending'] > 0
-          or state['aggregateCount'] != len(all_orders) or state['versionDigest'] != coverage_digest(all_orders)):
+    elif (checkpoint['lag'] > 0 or checkpoint['sourcePosition'] > position or checkpoint['sourcePending'] > 0
+          or checkpoint['aggregateCount'] != len(all_orders) or checkpoint['versionDigest'] != coverage_digest(all_orders)):
         quality, reason = 'INCOMPLETE', 'Committed source changes not yet projected'
     kpis = calculate(orders, now)
     if quality != 'FRESH':
@@ -165,17 +166,18 @@ def snapshot_data(db, now, fixture=None):
             'sourceEventId':source.get('eventId'), 'sourceAggregateId':source.get('aggregateId'),
             'sourceAggregateVersion':source.get('aggregateVersion'), 'correlationId':source.get('correlationId'),
             'watermark':{'occurredAt':source.get('occurredAt'), 'partitionOffsets':offsets,
-                         'sourcePosition':position, 'expectedSourcePosition':state['sourcePosition'], 'sourcePending':state['sourcePending'],
+                         'sourcePosition':position, 'expectedSourcePosition':checkpoint['sourcePosition'], 'sourcePending':checkpoint['sourcePending'],
                          'versionDigest':coverage_digest(all_orders)},
             'quality':{'status':quality,'reason':reason},
             'coverage':{'complete':quality=='FRESH','aggregateCount':len(orders),'eventCount':events},
-            'fixtureRunId':fixture, 'kpis':kpis, 'lag':state['lag'], 'gaps':gaps, 'errors':errors,
-            'deadlineSeconds':15, 'windowSeconds':900, 'heartbeatAt':utc(state['lastPoll'])}
+            'fixtureRunId':fixture, 'kpis':kpis, 'lag':checkpoint['lag'], 'gaps':gaps, 'errors':errors,
+            'deadlineSeconds':15, 'windowSeconds':900, 'heartbeatAt':utc(checkpoint['lastPoll'])}
 
 
 def commit_snapshot():
     now = time.time()
     with dbconn() as db:
+        db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         data = snapshot_data(db, now)
         current = db.execute('SELECT revision FROM snapshots WHERE id=1 FOR UPDATE').fetchone()
         revision = current['revision'] + 1
@@ -306,6 +308,7 @@ def age_checked(snapshot, now):
 @app.get('/api/business/snapshot')
 def current(fixtureRunId: str | None = None):
     with dbconn() as db:
+        db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         if fixtureRunId is not None:
             data = snapshot_data(db,time.time(),fixtureRunId)
             data.update(snapshotId=str(uuid.uuid4()),revision=db.execute('SELECT revision FROM snapshots WHERE id=1').fetchone()['revision'])

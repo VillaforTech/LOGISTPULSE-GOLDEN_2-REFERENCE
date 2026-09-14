@@ -60,7 +60,8 @@ def order(order_id: str):
 
 @app.post('/api/fulfillment/orders', status_code=201)
 def create(body: NewOrder, request: Request):
-    oid, now = 'ORD-' + uuid.uuid4().hex.upper(), time.time()
+    oid = 'ORD-' + uuid.uuid4().hex.upper()
+    now = Decimal(str(time.time())).quantize(Decimal('.000001'))
     correlation = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))[:100]
     with connect() as db:
         row = db.execute('''INSERT INTO orders(order_id,store_id,channel,total,status,created_at,

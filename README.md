@@ -48,10 +48,11 @@ npm ci
 npx playwright install chromium
 npm run browser-test
 .venv/bin/python scripts/resilience_test.py
+.venv/bin/python scripts/verify_evidence.py
 bash scripts/capture.sh
 ```
 
-El benchmark realiza **100 pedidos secuenciales** y tarda aproximadamente 8 minutos porque respeta la preparación de cuatro segundos. Mide con el reloj del navegador desde la llamada al API hasta la identidad correspondiente visible en una tabla nativa de Grafana Live y dos frames de render; cuenta pérdidas. El gate exige 100/100 observaciones y p95 < 1 s. El tiempo de preparación no se confunde con la latencia de visualización.
+El benchmark realiza **100 pedidos secuenciales** y tarda aproximadamente 8 minutos porque respeta la preparación de cuatro segundos. Mide con el reloj del navegador desde la llamada al API hasta la tres tarjetas Grafana con identidad, revisión, calidad y valores coherentes, revalidados tras dos frames de render; cuenta pérdidas. El gate exige 100/100 observaciones y p95 < 1 s. El tiempo de preparación no se confunde con la latencia de visualización.
 
 Las pruebas PostgreSQL usan esquemas temporales `test_<uuid>` y eliminan únicamente esos esquemas. El ensayo de resiliencia detiene/reinicia servicios **del gemelo** y deja su pedido de prueba en el historial. No debe ejecutarse sobre un despliegue ajeno.
 

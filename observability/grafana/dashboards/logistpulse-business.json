@@ -18,9 +18,9 @@
   "panels": [
     {
       "id": 1,
-      "type": "stat",
+      "type": "logistpulse-business-panel",
       "title": "L-K1 \u00b7 Promesas incumplidas",
-      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "description": "Datasource nativo Grafana Live. El renderer del proyecto invalida esta tarjeta tras 3s sin revisi\u00f3n o con computedAt antiguo.",
       "datasource": {
         "type": "grafana",
         "uid": "grafana"
@@ -36,7 +36,17 @@
           "channel": "stream/logistpulse/business",
           "filter": {
             "fields": [
-              "lk1"
+              "lk1",
+              "lk2",
+              "lk3",
+              "sample",
+              "quality",
+              "revision",
+              "aggregate_id",
+              "aggregate_version",
+              "correlation_id",
+              "source_event_id",
+              "computed_at"
             ]
           }
         }
@@ -84,23 +94,14 @@
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto"
+        "field": "lk1"
       }
     },
     {
       "id": 2,
-      "type": "stat",
+      "type": "logistpulse-business-panel",
       "title": "L-K2 \u00b7 Valor vencido (DEMO)",
-      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "description": "Datasource nativo Grafana Live. El renderer del proyecto invalida esta tarjeta tras 3s sin revisi\u00f3n o con computedAt antiguo.",
       "datasource": {
         "type": "grafana",
         "uid": "grafana"
@@ -116,7 +117,17 @@
           "channel": "stream/logistpulse/business",
           "filter": {
             "fields": [
-              "lk2"
+              "lk1",
+              "lk2",
+              "lk3",
+              "sample",
+              "quality",
+              "revision",
+              "aggregate_id",
+              "aggregate_version",
+              "correlation_id",
+              "source_event_id",
+              "computed_at"
             ]
           }
         }
@@ -164,23 +175,14 @@
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto"
+        "field": "lk2"
       }
     },
     {
       "id": 3,
-      "type": "stat",
+      "type": "logistpulse-business-panel",
       "title": "L-K3 \u00b7 Deuda (pedido\u00b7segundos)",
-      "description": "Grafana Live WebSocket. -1 = no confiable; -2 = sin muestra. Leer junto al monitor independiente de conexi\u00f3n.",
+      "description": "Datasource nativo Grafana Live. El renderer del proyecto invalida esta tarjeta tras 3s sin revisi\u00f3n o con computedAt antiguo.",
       "datasource": {
         "type": "grafana",
         "uid": "grafana"
@@ -196,7 +198,17 @@
           "channel": "stream/logistpulse/business",
           "filter": {
             "fields": [
-              "lk3"
+              "lk1",
+              "lk2",
+              "lk3",
+              "sample",
+              "quality",
+              "revision",
+              "aggregate_id",
+              "aggregate_version",
+              "correlation_id",
+              "source_event_id",
+              "computed_at"
             ]
           }
         }
@@ -244,16 +256,7 @@
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto"
+        "field": "lk3"
       }
     },
     {
@@ -365,7 +368,7 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Monitor independiente \u00b7 adapter Live conectado",
+      "title": "Monitor independiente \u00b7 edad de \u00faltimo push Live (s)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -373,7 +376,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "up{job=\"grafana-live-adapter\"}",
+          "expr": "time() - logistpulse_live_last_success_timestamp_seconds",
           "instant": true
         }
       ],
@@ -385,22 +388,21 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "SIN CONEXI\u00d3N",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "TRANSPORTE ACTIVO",
-                  "color": "green"
-                }
+          "unit": "s",
+          "noValue": "SIN CONEXI\u00d3N",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 3
               }
-            }
-          ],
-          "noValue": "SIN CONEXI\u00d3N"
+            ]
+          }
         }
       },
       "options": {
@@ -427,7 +429,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Referencia acad\u00e9mica \u2014 unidades DEMO.** L-K1: cohorte `(ahora\u2212900s, ahora\u221215s]`. L-K2/L-K3: todo backlog vencido. El heartbeat Live actualiza los paneles; refresh 5s solo comprueba los monitores independientes. **Si estos fallan, descartar los \u00faltimos n\u00fameros Live.** La consola aplica tambi\u00e9n un watchdog local de 3s."
+        "content": "**Referencia acad\u00e9mica \u00b7 unidades DEMO.** L-K1: cohorte `(ahora\u2212900s, ahora\u221215s]`. L-K2/L-K3: todo backlog vencido. Cada tarjeta invalida datos tras 3s sin revisi\u00f3n. El datasource Grafana Live entrega el stream; refresh 5s solo consulta monitores t\u00e9cnicos."
       }
     }
   ]

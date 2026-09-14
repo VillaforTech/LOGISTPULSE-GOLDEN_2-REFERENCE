@@ -19,6 +19,8 @@ services:
       retries: 20
     networks:
     - logist
+    mem_limit: 512m
+    cpus: 1
   mongo:
     image: mongo:8.0
     volumes:
@@ -286,6 +288,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    mem_limit: 512m
+    cpus: 1
 networks:
   logist: {}
 volumes:
