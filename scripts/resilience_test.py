@@ -29,7 +29,10 @@ try:
     restored=wait(lambda:(o if (o:=get('/api/fulfillment/orders/'+created['orderId']))['status']=='READY' else None),60)
     result['recoveredOrder']=restored;wait(fresh,60)
     # Stopping analytics leaves its durable history; adapter must explicitly publish stale.
-    old=get('/api/business/snapshot');compose('stop','business-analytics');time.sleep(3.5)
+    cut=get('/api/fulfillment/watermark');result['confirmedSourceCut']=cut
+    old=wait(lambda:(s if (s:=fresh()) and s['watermark']['versionDigest']==cut['versionDigest'] and s['watermark']['sourcePosition']>=cut['sourcePosition'] else None),30)
+    result['beforeAnalyticsRestart']=old
+    compose('stop','business-analytics');time.sleep(3.5)
     result['adapterDuringAnalyticsOutage']=get('/health/live')
     assert result['adapterDuringAnalyticsOutage']['ready'] is False
     compose('start','business-analytics');new=wait(fresh,60)
@@ -55,6 +58,9 @@ try:
     compose('restart','grafana-live-adapter');wait(lambda:get('/health/live')['ready'],40)
     compose('restart','grafana');wait(lambda:get('/health/live')['ready'],60)
     result['afterGrafanaRestart']=get('/health/live');result['passed']=True
+except Exception as exc:
+    result.update(passed=False,error=str(exc))
+    raise
 finally:
     compose('start','redpanda','business-analytics','grafana','grafana-live-adapter')
     (out/'evidence.json').write_text(json.dumps(result,indent=2))

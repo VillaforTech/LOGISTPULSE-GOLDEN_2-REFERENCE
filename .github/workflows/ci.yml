@@ -15,6 +15,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact tested commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/tested-sha.txt
+          test "$(cat artifacts/tested-sha.txt)" = "$EXPECTED_SHA"
       - name: Validate architecture decision records
         run: |
           ./scripts/adr --version
@@ -39,6 +48,15 @@ jobs:
     needs: architecture-contract
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact tested commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/tested-sha.txt
+          test "$(cat artifacts/tested-sha.txt)" = "$EXPECTED_SHA"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -58,6 +76,15 @@ jobs:
     needs: architecture-contract
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact tested commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/tested-sha.txt
+          test "$(cat artifacts/tested-sha.txt)" = "$EXPECTED_SHA"
       - name: Build and start reference
         run: bash scripts/up.sh
       - name: Original technical assertions
@@ -86,6 +113,15 @@ jobs:
     needs: architecture-contract
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact tested commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/tested-sha.txt
+          test "$(cat artifacts/tested-sha.txt)" = "$EXPECTED_SHA"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -139,12 +175,23 @@ jobs:
       - name: Require every observed result to succeed
         env:
           RESULTS: ${{ toJSON(needs) }}
+          TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           python3 - <<'PY'
           import json, os, sys
+          from pathlib import Path
           results=json.loads(os.environ['RESULTS'])
+          passed=all(job['result']=='success' for job in results.values())
+          Path('artifacts').mkdir(exist_ok=True)
+          Path('artifacts/release-gate.json').write_text(json.dumps({'testedSha':os.environ['TESTED_SHA'],'needs':results,'decision':'PASS' if passed else 'BLOCK'},indent=2))
           for name, job in results.items(): print(f"{name}: {job['result']}")
           if any(job['result'] != 'success' for job in results.values()):
               print('::error::Release blocked: failed, skipped and cancelled stages do not pass.')
               sys.exit(1)
           PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-gate-decision
+          path: artifacts/release-gate.json
+          if-no-files-found: error

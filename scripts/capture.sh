@@ -9,3 +9,6 @@ curl -fsS http://localhost:28080/api/business/snapshot > artifacts/runtime/snaps
 curl -fsS http://localhost:28080/api/business/alerts > artifacts/runtime/alerts.json || true
 docker stats --no-stream --format '{{json .}}' $(bash scripts/compose.sh ps -q) > artifacts/runtime/resources.jsonl || true
 git rev-parse HEAD > artifacts/runtime/commit.txt
+if [ -d node_modules/playwright ]; then
+  node scripts/capture-dashboard.mjs || true
+fi

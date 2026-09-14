@@ -8,6 +8,9 @@ const out='artifacts/streaming';fs.mkdirSync(out,{recursive:true});
 const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
 const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:1600,height:1100}}),page=await context.newPage();
+result.pageErrors=[];result.httpFailures=[];
+page.on('pageerror',e=>result.pageErrors.push(String(e)));
+page.on('response',r=>{if(r.status()>=400)result.httpFailures.push({url:r.url(),status:r.status()})});
 const stopped=new Set();
 async function compose(...args){await exec('bash',['scripts/compose.sh',...args],{timeout:90000,maxBuffer:1024*1024})}
 async function stop(service){stopped.add(service);await compose('stop',service)}
@@ -44,6 +47,7 @@ await context.addInitScript(()=>{
 });
 try{
  await page.goto(base+'/grafana/login');
+ await page.locator('input[name="user"]').waitFor({state:'visible',timeout:30000});
  if(await page.locator('input[name="user"]').count()){
   await page.locator('input[name="user"]').fill(env.GF_SECURITY_ADMIN_USER||'admin');
   await page.locator('input[name="password"]').fill(env.GF_SECURITY_ADMIN_PASSWORD);

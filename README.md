@@ -10,7 +10,8 @@ Requisitos: Docker con Compose v2, Python 3.12 y Node 22 para las pruebas de nav
 python3 scripts/configure.py
 bash scripts/up.sh
 bash scripts/smoke.sh
-# Al terminar, conserva los volúmenes y su evidencia:
+# Ejecutar down SOLO al terminar también las pruebas de la sección siguiente.
+# Conserva los volúmenes y su evidencia:
 bash scripts/down.sh
 ```
 
@@ -45,7 +46,8 @@ mkdir -p artifacts
 bash scripts/compose.sh run --rm --build database-tests
 .venv/bin/python scripts/business_test.py
 npm ci
-npx playwright install chromium
+npx playwright install --with-deps chromium # Linux / Codespaces
+# En macOS: npx playwright install chromium
 npm run browser-test
 .venv/bin/python scripts/resilience_test.py
 .venv/bin/python scripts/verify_evidence.py
@@ -66,9 +68,9 @@ Las pruebas PostgreSQL usan esquemas temporales `test_<uuid>` y eliminan únicam
 
 | Issue del original | Implementación de referencia | Pruebas / evidencia |
 | --- | --- | --- |
-| [#1 Capability](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/1) | `services/logist/{domain,fulfillment,worker}.py` | `tests/unit/test_domain.py`, `scripts/business_test.py` |
-| [#2 Dominio y eventos](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/2) | `storage.py`, `relay.py`, `worker.py` | `tests/database/test_transactions.py` |
-| [#3 KPIs y streaming](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/3) | `analytics.py`, `live.py`, dashboard Business | pruebas de cobertura/timers, `scripts/browser-test.mjs`, `scripts/resilience_test.py` |
+| [#1 Capability, dominio y eventos](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/1) | `services/logist/{domain,fulfillment,storage,relay,worker}.py` | `tests/unit/test_domain.py`, transacciones e inbox/outbox, `scripts/business_test.py` |
+| [#2 Proyección, KPIs y timers](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/2) | `domain.py`, `analytics.py` | cobertura, deduplicación, timers e historial en `tests/database/test_transactions.py` |
+| [#3 Streaming y panel](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/3) | `live.py`, dashboard y plugin Business, consola | `scripts/browser-test.mjs`, `scripts/resilience_test.py` |
 | [#4 CI y release gate](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/4) | `.github/workflows/ci.yml` | artifacts unit, technical, business-and-streaming |
 | [#5 Reproducción y entrega](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2/issues/5) | esta guía, `.devcontainer/`, `docs/deber-01.md` | registros reales de ejecución y PRs; no equivalen a entrega D2L |
 
