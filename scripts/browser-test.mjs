@@ -12,9 +12,12 @@ result.startedAt=new Date().toISOString();
 try{result.environment.docker=JSON.parse((await exec('docker',['info','--format','{"cpus":{{.NCPU}},"memoryBytes":{{.MemTotal}}}'])).stdout)}catch{}
 const browser=await chromium.launch({headless:true});
 result.environment.browser=browser.version();
-const context=await browser.newContext({viewport:{width:1600,height:1100}}),page=await context.newPage();
-result.pageErrors=[];result.httpFailures=[];
+const context=await browser.newContext({locale:'en-US',viewport:{width:1600,height:1100}}),page=await context.newPage();
+result.environment.locale='en-US';
+result.pageErrors=[];result.httpFailures=[];result.consoleErrors=[];result.requestFailures=[];
 page.on('pageerror',e=>result.pageErrors.push(String(e)));
+page.on('console',e=>{if(e.type()==='error')result.consoleErrors.push(e.text())});
+page.on('requestfailed',r=>result.requestFailures.push({url:r.url(),error:r.failure()?.errorText}));
 page.on('response',r=>{if(r.status()>=400)result.httpFailures.push({url:r.url(),status:r.status()})});
 const stopped=new Set();
 async function compose(...args){await exec('bash',['scripts/compose.sh',...args],{timeout:90000,maxBuffer:1024*1024})}
@@ -51,6 +54,7 @@ await context.addInitScript(()=>{
  window.matchLogist=(cards,orders,identity)=>{
   if(cards.length!==3||cards.some(x=>x.quality!=='FRESH'))return null;
   const first=cards[0];
+  if(!first.eventId||!Number.isInteger(Number(first.revision))||Number(first.revision)<1)return null;
   if(cards.some(x=>x.revision!==first.revision||x.eventId!==first.eventId||x.computedAt!==first.computedAt))return null;
   if(identity&&cards.some(x=>x.correlationId!==identity.correlation||x.aggregateId!==identity.orderId||Number(x.aggregateVersion)<identity.version))return null;
   const expected=window.expectedLogist(orders,first.computedAt);
@@ -61,6 +65,7 @@ await context.addInitScript(()=>{
 });
 try{
  await page.goto(base+'/grafana/login');
+ result.environment.navigatorLanguage=await page.evaluate(()=>navigator.language);
  await page.locator('input[name="user"]').waitFor({state:'visible',timeout:30000});
  if(await page.locator('input[name="user"]').count()){
   await page.locator('input[name="user"]').fill(env.GF_SECURITY_ADMIN_USER||'admin');
@@ -117,10 +122,32 @@ try{
  await stop('fulfillment-worker');
  const due=await page.evaluate(async fixture=>{const r=await fetch('/api/fulfillment/orders',{method:'POST',headers:{'Content-Type':'application/json','X-Correlation-ID':fixture},body:JSON.stringify({total:'25.50',fixtureRunId:fixture,channel:'TIMER-VISUAL'})});if(!r.ok)throw Error(r.status);return r.json()},result.fixtureRunId+'-deadline');
  const source=await page.evaluate(async()=>(await(await fetch('/api/fulfillment/snapshot')).json()).orders);
- await page.waitForFunction(({source,due})=>{const m=window.matchLogist(window.readLogistCards(),source,{correlation:due.correlationId,orderId:due.orderId,version:due.version});return m&&m.expected.lk2>=25.5&&m.expected.lk3>0},{source,due},{timeout:25000,polling:100});
- result.visualChecks.deadline=await page.evaluate(source=>({passed:true,...window.matchLogist(window.readLogistCards(),source)}),source);
- result.visualChecks.deadline.order=due;
+ result.visualChecks.deadline=await page.evaluate(async({source,due})=>{
+  const deadlineMs=window.logistEpoch(due.createdAt)*1000+15000;
+  const identity={correlation:due.correlationId,orderId:due.orderId,version:due.version};
+  const end=performance.now()+25000;
+  while(performance.now()<end){
+   const match=window.matchLogist(window.readLogistCards(),source,identity);
+   if(match&&match.expected.lk2>=25.5&&match.expected.lk3>0){
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const again=window.matchLogist(window.readLogistCards(),source,identity);
+    if(again&&again.cards[0].revision===match.cards[0].revision){
+     const renderEpochMs=performance.timeOrigin+performance.now();
+     const snapshotDelayMs=window.logistEpoch(again.cards[0].computedAt)*1000-deadlineMs;
+     const renderDelayMs=renderEpochMs-deadlineMs;
+     return {passed:snapshotDelayMs>=0&&snapshotDelayMs<=1000&&renderDelayMs>=0&&renderDelayMs<=1000,
+      ...again,order:due,deadlineUtc:new Date(deadlineMs).toISOString(),deadlineEpochMs:deadlineMs,
+      firstObservedComputedAt:again.cards[0].computedAt,renderedAtUtc:new Date(renderEpochMs).toISOString(),renderEpochMs,
+      snapshotDelayMs,renderDelayMs,thresholdMs:1000,clock:'Browser performance.timeOrigin + performance.now against source UTC; services and browser share one host clock'};
+    }
+   }
+   await new Promise(resolve=>requestAnimationFrame(resolve));
+  }
+  return {passed:false,order:due,deadlineEpochMs:deadlineMs,thresholdMs:1000,error:'No coherent breached KPI render within 25-second diagnostic wait'};
+ },{source,due});
+ save();
  await page.screenshot({path:out+'/grafana-real-deadline.png',fullPage:true});
+ if(!result.visualChecks.deadline.passed)throw new Error('Deadline KPI detection/render failed <=1000ms: '+JSON.stringify(result.visualChecks.deadline));
  await start('fulfillment-worker');
  await waitReady(due.orderId);
  // No page reload: a live client must first invalidate, then receive a newer coherent revision.

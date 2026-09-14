@@ -10,6 +10,8 @@ Un pedido aceptado en `t0=createdAt` debe alcanzar `READY` con `readyAt <= t0+15
 
 Cada snapshot recomputa la deuda desde timestamps persistidos. Repetir un tick no duplica segundos. Un timer de 200 ms actualiza vencimientos y expiración de ventana aunque no lleguen eventos nuevos. El valor de deuda empieza en cero exactamente al límite; un microsegundo tarde ya incumple. Un pedido que termina tarde sale del backlog L-K2/L-K3, pero conserva el incumplimiento histórico L-K1 hasta salir de la cohorte. La llegada tardía de un hecho READY que ocurrió a tiempo corrige la proyección.
 
+El consumidor confirma la cobertura con una conexión HTTP reutilizada y consultas de watermark cada 100 ms; el poll/fetch de Kafka espera hasta 50 ms. Reducir estos intervalos no omite publicaciones pendientes, comparaciones de digest/cantidad ni transacciones. El umbral de render se verifica con el benchmark completo, separado del contrato de preparación.
+
 Las tres alertas se activan cuando su valor válido es mayor que cero y persisten cambios de estado y timestamps. Un hueco, conflicto o desconexión suspende la interpretación; no resuelve alertas como si el problema de negocio hubiera desaparecido.
 
 ## Calidad y visualización
