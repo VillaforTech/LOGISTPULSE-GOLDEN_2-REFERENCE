@@ -2,7 +2,7 @@
 
 This repository is the complete engineering reference for LogistPulse's fulfillment flow. It follows an accepted order through preparation, durable event delivery, recoverable analytics and a live Grafana dashboard, then proves that the release process catches an order stuck before `READY` even while the platform remains technically healthy.
 
-It complements the team-owned [LogistPulse repository](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2). The code is an executable integration target and evidence model; teammates review and adapt it through their own pull requests rather than receiving automatic contribution credit.
+It complements the team-owned [LogistPulse repository](https://github.com/VillaforTech/logistpulse). The code is an executable integration target and evidence model; teammates review and adapt it through their own pull requests rather than receiving automatic contribution credit.
 
 > Stores, orders and amounts are synthetic. Values are demo monetary units and do not represent real revenue or transactions.
 

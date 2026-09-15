@@ -85,7 +85,7 @@
           "status": "completed"
         }
       ],
-      "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542663009"
+      "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542663009"
     },
     {
       "completedAt": "2026-09-15T20:02:58Z",
@@ -256,7 +256,7 @@
           "status": "completed"
         }
       ],
-      "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719727"
+      "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719727"
     },
     {
       "completedAt": "2026-09-15T20:00:32Z",
@@ -363,7 +363,7 @@
           "status": "completed"
         }
       ],
-      "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719730"
+      "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719730"
     },
     {
       "completedAt": "2026-09-15T20:01:36Z",
@@ -462,7 +462,7 @@
           "status": "completed"
         }
       ],
-      "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719839"
+      "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719839"
     },
     {
       "completedAt": "2026-09-15T20:03:03Z",
@@ -505,10 +505,10 @@
           "status": "completed"
         }
       ],
-      "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104543664381"
+      "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104543664381"
     }
   ],
   "status": "completed",
-  "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178",
+  "url": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178",
   "workflowName": "LOGISTPULSE CI"
 }

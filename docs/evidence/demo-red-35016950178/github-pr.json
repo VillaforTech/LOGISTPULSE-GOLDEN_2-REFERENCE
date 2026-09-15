@@ -13,7 +13,7 @@
       "__typename": "CheckRun",
       "completedAt": "2026-09-15T20:00:14Z",
       "conclusion": "SUCCESS",
-      "detailsUrl": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542663009",
+      "detailsUrl": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542663009",
       "name": "architecture-contract",
       "startedAt": "2026-09-15T20:00:07Z",
       "status": "COMPLETED",
@@ -23,7 +23,7 @@
       "__typename": "CheckRun",
       "completedAt": "2026-09-15T20:00:32Z",
       "conclusion": "FAILURE",
-      "detailsUrl": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719730",
+      "detailsUrl": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719730",
       "name": "unit",
       "startedAt": "2026-09-15T20:00:16Z",
       "status": "COMPLETED",
@@ -33,7 +33,7 @@
       "__typename": "CheckRun",
       "completedAt": "2026-09-15T20:01:36Z",
       "conclusion": "SUCCESS",
-      "detailsUrl": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719839",
+      "detailsUrl": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719839",
       "name": "integration",
       "startedAt": "2026-09-15T20:00:16Z",
       "status": "COMPLETED",
@@ -43,7 +43,7 @@
       "__typename": "CheckRun",
       "completedAt": "2026-09-15T20:02:58Z",
       "conclusion": "FAILURE",
-      "detailsUrl": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104542719727",
+      "detailsUrl": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104542719727",
       "name": "Business lab and native streaming",
       "startedAt": "2026-09-15T20:00:16Z",
       "status": "COMPLETED",
@@ -53,7 +53,7 @@
       "__typename": "CheckRun",
       "completedAt": "2026-09-15T20:03:03Z",
       "conclusion": "FAILURE",
-      "detailsUrl": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/actions/runs/35016950178/job/104543664381",
+      "detailsUrl": "https://github.com/VillaforTech/logistpulse-reference/actions/runs/35016950178/job/104543664381",
       "name": "Release gate",
       "startedAt": "2026-09-15T20:03:00Z",
       "status": "COMPLETED",
@@ -61,5 +61,5 @@
     }
   ],
   "title": "Demonstrate and correct the false-green fulfillment regression",
-  "url": "https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2-REFERENCE/pull/2"
+  "url": "https://github.com/VillaforTech/logistpulse-reference/pull/2"
 }

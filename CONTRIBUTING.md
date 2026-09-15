@@ -2,7 +2,7 @@
 
 This repository maintains an executable integration baseline for the team-owned LogistPulse product. Contributions should preserve the complete fulfillment story: valid order transitions, durable facts, recoverable analytics, live Grafana rendering and a release gate based on business correctness.
 
-The shared product work belongs in [LOGISTPULSE-GOLDEN_2](https://github.com/VillaforTech/LOGISTPULSE-GOLDEN_2). Use this repository to improve the reference, reproducibility or engineering documentation. Do not use a reference commit to claim another contributor completed a shared issue.
+The shared product work belongs in [LOGISTPULSE-GOLDEN_2](https://github.com/VillaforTech/logistpulse). Use this repository to improve the reference, reproducibility or engineering documentation. Do not use a reference commit to claim another contributor completed a shared issue.
 
 ## Workflow
 
