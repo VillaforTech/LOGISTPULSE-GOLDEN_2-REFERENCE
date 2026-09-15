@@ -27,7 +27,7 @@ PREPARATION_SECONDS = 4.0
 
 def finish_preparation(order, now):
     # Controlled regression target: omitting this transition keeps technology UP.
-    return transition(order, "READY", now)
+    return order, False  # Controlled false-green demonstration: READY is omitted.
 
 
 def process(command, command_id):
