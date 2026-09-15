@@ -27,6 +27,10 @@ assert (
     and stream["transport"]["frames"] > 0
     and stream["transport"]["channels"]
 )
+assert all(
+    channel == {"organizationId": 1, "wireChannel": "1/stream/logistpulse/business", "logicalChannel": "stream/logistpulse/business"}
+    for channel in stream["transport"]["channels"]
+)
 assert len({s["correlation"] for s in stream["samples"]}) == 100
 latencies = sorted(float(s["latencyMs"]) for s in stream["samples"])
 assert all(math.isfinite(value) and value >= 0 for value in latencies)

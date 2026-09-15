@@ -2,13 +2,14 @@ import {chromium} from 'playwright';
 import fs from 'node:fs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {inspectLiveFrame} from './grafana-live-protocol.mjs';
 const exec=promisify(execFile),base=process.env.BASE_URL||'http://localhost:28080';
 const env=Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(x=>x&&!x.startsWith('#')).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)]}));
 const out='artifacts/streaming';
 // Preserve each previous run instead of mixing an old failure image into a new result.
 if(fs.existsSync(out+'/measurements.json'))fs.renameSync(out,out+'-previous-'+Date.now());
 fs.mkdirSync(out,{recursive:true});
-const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[]},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
+const result={fixtureRunId:`render-${crypto.randomUUID()}`,requested:100,samples:[],errors:[],transport:{url:null,frames:0,channels:[],messageShapes:[],invalidLines:0},visualChecks:{},measurement:'browser performance.now API invocation -> all three Grafana KPI cards with matching identity/revision/FRESH/expected values, revalidated after two animation frames',thresholdP95Ms:1000};
 result.testedSha=(await exec('git',['rev-parse','HEAD'])).stdout.trim();
 result.environment={platform:process.platform,arch:process.arch,node:process.version};
 result.startedAt=new Date().toISOString();
@@ -40,11 +41,10 @@ page.on('websocket',ws=>{
  if(ws.url().includes('/api/live/ws')){
   result.transport.url=ws.url();
   ws.on('framesent',e=>{
-   for(const line of String(e.payload).split('\n')){
-    try{const channel=JSON.parse(line).subscribe?.channel;
-     if(channel==='stream/logistpulse/business')result.transport.channels.push(channel);
-    }catch{}
-   }
+   const observed=inspectLiveFrame(e.payload);
+   result.transport.channels.push(...observed.subscriptions);
+   result.transport.invalidLines+=observed.invalidLines;
+   for(const shape of observed.shapes)if(!result.transport.messageShapes.includes(shape))result.transport.messageShapes.push(shape);
   });
   ws.on('framereceived',()=>result.transport.frames++);
  }
